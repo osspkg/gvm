@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+
+DIR="$(command cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+\. "$DIR/../env.sh"
+
+type_arch_name(){
+  case "$(uname -m)" in
+    aarch64) echo "arm64";;
+    x86) echo "386";;
+    x86_64) echo "amd64";;
+    *)
+      echo "Unsupported Arch"
+      exit 1
+      ;;
+  esac
+}
+
+type_os_name(){
+  case "$(uname -sr)" in
+    Linux*) echo "linux";;
+    *)
+      echo "Unsupported OS"
+      exit 1
+      ;;
+  esac
+}
+
+app_download(){
+  if ! curl --fail -L -s -q "$1" -o "$2"; then
+    echo "Failed download: $1"
+    exit 1
+  fi
+}
+
+app_setup(){
+  local ver
+  ver=$1
+  local arch
+  arch=$(type_arch_name)
+  local os
+  os=$(type_os_name)
+
+  command mkdir -p "${GVM_CACHE}/go${ver}"
+  command mkdir -p "${GVM_CACHE}/modules"
+
+  if [ ! -f "${GVM_CACHE}/go${ver}/go/bin/go" ]; then
+    app_download "https://go.dev/dl/go${ver}.${os}-${arch}.tar.gz" "${GVM_CACHE}/go${ver}.tar.gz"
+    command tar -C "${GVM_CACHE}/go${ver}" -xzf "${GVM_CACHE}/go${ver}.tar.gz"
+  fi
+}
+
+__call_use(){
+  local ver
+  ver=$1
+  local rcfile
+  rcfile=$2
+
+  if [ -z "${ver}" ]; then
+    ver=$(go_version)
+  fi
+
+  if [ -z "${ver}" ]; then
+    echo "File '.gvmrc' not found."
+    echo "> Call 'gvm default <version>' for global setup golang."
+    echo "> Call 'gvm local <version>' for local setup golang."
+    exit 1
+  fi
+
+  app_setup "${ver}"
+  go_env "${ver}"
+
+  if [ -n "${rcfile}" ]; then
+    command printf "${ver}" > "${rcfile}"
+  fi
+}
+
+__call_update(){
+  curl -o- https://raw.githubusercontent.com/osspkg/gvm/master/install.sh | bash
+}
+
+case "$1" in
+  install)
+    __call_use "$2" ""
+    ;;
+  default)
+    __call_use "$2" "${GVM_DIR}/.gvmrc"
+    ;;
+  local)
+    __call_use "$2" "$(pwd)/.gvmrc"
+    ;;
+  update)
+    __call_update
+    ;;
+  *)
+    echo "Commands: install, default, local"
+    ;;
+esac
