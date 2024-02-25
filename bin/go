@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+DIR="$(command cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+\. "$DIR/../env.sh"
+
+if [ -z "${GVM_GO}" ]; then
+  echo "File '.gvmrc' not found."
+  echo "> Call 'gvm default <version>' for global setup golang."
+  echo "> Call 'gvm local <version>' for local setup golang."
+  exit 1
+fi
+
+if [ ! -f "${GOROOT}/bin/go" ]; then
+  command gvm install
+fi
+
+echo "go: v${GVM_GO}"
+exec "${GOROOT}/bin/go" "$@"
