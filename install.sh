@@ -20,7 +20,7 @@ git_clone(){
 get_profile_path(){
   local PROFILE_PATH
   PROFILE_PATH=''
-  for PROFILE in ".profile" ".bashrc" ".bash_profile"
+  for PROFILE in ".bashrc" ".bash_profile" ".profile"
   do
     if [ -f "${HOME}/${PROFILE}" ]; then
       PROFILE_PATH="${HOME}/${PROFILE}"
