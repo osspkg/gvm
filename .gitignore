@@ -1,5 +1,5 @@
-.idea
-.vscode
-.cache
-.tmp
+.idea/
+.vscode/
+.cache/
+.tmp/
 .gvmrc
