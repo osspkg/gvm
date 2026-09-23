@@ -1,67 +1,85 @@
 #!/usr/bin/env bash
 
-export GVM_DIR="$HOME/.gvm"
+set -euo pipefail
 
-app_has() {
-  type "$1" > /dev/null 2>&1
-}
+readonly repository="osspkg/gvm"
+readonly home_dir="${GVM_HOME:-${HOME}/.gvm}"
+readonly bin_dir="${home_dir}/bin"
+readonly cache_dir="${home_dir}/.cache"
+readonly temp_dir="$(mktemp -d)"
+trap 'rm -rf "${temp_dir}"' EXIT
 
-app_check() {
-  if ! app_has "$1"; then
-    echo "Error: $1 not found"
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "required command not found: $1" >&2
     exit 1
   fi
 }
 
-git_clone(){
-  git clone --quiet --branch "master" --single-branch https://github.com/osspkg/gvm.git "${GVM_DIR}/.tmp"
+platform_os() {
+  case "$(uname -s)" in
+    Linux) echo "linux" ;;
+    Darwin) echo "darwin" ;;
+    *) echo "unsupported operating system: $(uname -s)" >&2; exit 1 ;;
+  esac
 }
 
-get_profile_path(){
-  local PROFILE_PATH
-  PROFILE_PATH=''
-  for PROFILE in ".bashrc" ".bash_profile" ".profile"
-  do
-    if [ -f "${HOME}/${PROFILE}" ]; then
-      PROFILE_PATH="${HOME}/${PROFILE}"
-      break
-    fi
-  done
-  if [ -z "${PROFILE_PATH}" ]; then
-    echo "Failed profile detect"
-    exit 1
+platform_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64) echo "amd64" ;;
+    arm64|aarch64) echo "arm64" ;;
+    *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+  esac
+}
+
+append_profile_block() {
+  local profile="$1"
+  touch "${profile}"
+  if grep -Fq '# >>> gvm >>>' "${profile}"; then
+    return
   fi
-  echo "${PROFILE_PATH}"
+  cat >>"${profile}" <<'PROFILE'
+
+# >>> gvm >>>
+export GVM_HOME="${GVM_HOME:-$HOME/.gvm}"
+case ":${PATH:-}:" in
+  *":${GVM_HOME}/bin:"*) ;;
+  *) export PATH="${GVM_HOME}/bin${PATH:+:${PATH}}" ;;
+esac
+# <<< gvm <<<
+PROFILE
 }
 
-setup_profile(){
-  local PROFILE_PATH
-  PROFILE_PATH=$(get_profile_path)
+require_command curl
+require_command tar
 
-  ENV_STRING="\\n[ -s \"\$HOME/.gvm/env.sh\" ] && \\. \"\$HOME/.gvm/env.sh\"  # This loads gvm\\n\\n"
-
-  if ! command grep -qc '/.gvm/env.sh' "${PROFILE_PATH}"; then
-    command printf "${ENV_STRING}" >> "${PROFILE_PATH}"
-  fi
-}
-
-app_check "curl"
-app_check "git"
-
-mkdir -p "$GVM_DIR"
-mkdir -p "${GVM_DIR}/.cache"
-rm -rf "${GVM_DIR}/.tmp"
-mkdir -p "${GVM_DIR}/.tmp"
-if ! git_clone; then
-  echo "Failed clone GVM"
+os_name="$(platform_os)"
+arch_name="$(platform_arch)"
+api_response="${temp_dir}/release.json"
+curl --fail --silent --show-error --location \
+  "https://api.github.com/repos/${repository}/releases/latest" \
+  -H 'Accept: application/vnd.github+json' -H 'User-Agent: gvm-installer' \
+  -o "${api_response}"
+release_tag="$(sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${api_response}" | head -n 1)"
+if [ -z "${release_tag}" ]; then
+  echo "latest gvm release has no tag" >&2
   exit 1
 fi
-rm -rf "${GVM_DIR}"/.tmp/.git*
-cp -rlf "${GVM_DIR}"/.tmp/* "${GVM_DIR}"/
-rm -rf "${GVM_DIR}/.tmp"
+release_version="${release_tag#v}"
+archive_name="gvm_${release_version}_${os_name}_${arch_name}.tar.gz"
+archive_path="${temp_dir}/${archive_name}"
+curl --fail --silent --show-error --location \
+  "https://github.com/${repository}/releases/download/${release_tag}/${archive_name}" \
+  -o "${archive_path}"
 
-setup_profile
+mkdir -p "${bin_dir}" "${cache_dir}/bin" "${cache_dir}/pkg" "${cache_dir}/src"
+tar -xzf "${archive_path}" -C "${temp_dir}"
+install -m 0755 "${temp_dir}/gvm" "${bin_dir}/gvm"
+install -m 0755 "${temp_dir}/go" "${bin_dir}/go"
 
-command gvm default "1.22.0"
+append_profile_block "${HOME}/.profile"
+append_profile_block "${HOME}/.bashrc"
+append_profile_block "${HOME}/.zshrc"
 
-echo "Done! Please reboot system!"
+echo "gvm ${release_tag} installed in ${home_dir}"
+echo "Open a new shell or source your profile to use gvm and go."
