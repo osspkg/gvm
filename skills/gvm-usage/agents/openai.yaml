@@ -1,0 +1,4 @@
+interface:
+  display_name: "GVM Usage"
+  short_description: "Use gvm to manage Go SDKs and projects"
+  default_prompt: "Use $gvm-usage to select and run the correct Go SDK for this project."
