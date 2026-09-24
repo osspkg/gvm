@@ -1,9 +1,10 @@
-name: release
+name: Release binaries
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
