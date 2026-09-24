@@ -36,18 +36,36 @@ try {
     if (-not (Test-Path $PROFILE)) {
         New-Item -ItemType File -Force -Path $PROFILE | Out-Null
     }
-    if (-not (Select-String -Path $PROFILE -SimpleMatch -Pattern "# >>> gvm >>>" -Quiet)) {
-        $profileBlock = @(
-            "",
-            '# >>> gvm >>>',
-            '$env:GVM_HOME = if ($env:GVM_HOME) { $env:GVM_HOME } else { Join-Path $HOME ''.gvm'' }',
-            '$gvmBin = Join-Path $env:GVM_HOME ''bin''',
-            '$gvmPathParts = @($env:Path -split '';'' | Where-Object { $_ -and $_ -ne $gvmBin })',
-            '$env:Path = ((@($gvmBin) + $gvmPathParts) -join '';'' )',
-            '# <<< gvm <<<'
-        ) -join [Environment]::NewLine
-        Add-Content -Path $PROFILE -Value $profileBlock
+    $profileLines = @(Get-Content -LiteralPath $PROFILE)
+    $profileOutput = New-Object System.Collections.Generic.List[string]
+    $insideGvmBlock = $false
+    foreach ($line in $profileLines) {
+        if ($line -eq '# >>> gvm >>>') {
+            $insideGvmBlock = $true
+            continue
+        }
+        if ($insideGvmBlock -and $line -eq '# <<< gvm <<<') {
+            $insideGvmBlock = $false
+            continue
+        }
+        if (-not $insideGvmBlock) {
+            [void]$profileOutput.Add($line)
+        }
     }
+    if ($insideGvmBlock) {
+        throw "profile contains an unterminated gvm block: $PROFILE"
+    }
+    $profileBlock = @(
+        "",
+        '# >>> gvm >>>',
+        '$env:GVM_HOME = if ($env:GVM_HOME) { $env:GVM_HOME } else { Join-Path $HOME ''.gvm'' }',
+        '$gvmBin = Join-Path $env:GVM_HOME ''bin''',
+        '$gvmCacheBin = Join-Path $env:GVM_HOME ''.cache\bin''',
+        '$gvmPathParts = @($env:Path -split '';'' | Where-Object { $_ -and $_ -ne $gvmCacheBin -and $_ -ne $gvmBin })',
+        '$env:Path = ((@($gvmCacheBin, $gvmBin) + $gvmPathParts) -join '';'' )',
+        '# <<< gvm <<<'
+    )
+    Set-Content -LiteralPath $PROFILE -Value (@($profileOutput.ToArray()) + $profileBlock)
     Write-Output "gvm $($release.tag_name) installed in $gvmHome"
 }
 finally {

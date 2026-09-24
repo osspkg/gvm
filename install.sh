@@ -34,11 +34,20 @@ platform_arch() {
 
 append_profile_block() {
   local profile="$1"
+  local temp_profile
   touch "${profile}"
-  if grep -Fq '# >>> gvm >>>' "${profile}"; then
-    return
+  temp_profile="$(mktemp "${profile}.gvm.XXXXXX")"
+  if ! awk '
+    $0 == "# >>> gvm >>>" { in_block = 1; next }
+    $0 == "# <<< gvm <<<" && in_block { in_block = 0; next }
+    !in_block { print }
+    END { if (in_block) exit 1 }
+  ' "${profile}" >"${temp_profile}"; then
+    rm -f "${temp_profile}"
+    echo "profile contains an unterminated gvm block: ${profile}" >&2
+    return 1
   fi
-  cat >>"${profile}" <<'PROFILE'
+  cat >>"${temp_profile}" <<'PROFILE'
 
 # >>> gvm >>>
 export GVM_HOME="${GVM_HOME:-$HOME/.gvm}"
@@ -46,8 +55,14 @@ case ":${PATH:-}:" in
   *":${GVM_HOME}/bin:"*) ;;
   *) export PATH="${GVM_HOME}/bin${PATH:+:${PATH}}" ;;
 esac
+case ":${PATH:-}:" in
+  *":${GVM_HOME}/.cache/bin:"*) ;;
+  *) export PATH="${GVM_HOME}/.cache/bin${PATH:+:${PATH}}" ;;
+esac
 # <<< gvm <<<
 PROFILE
+  cat "${temp_profile}" >"${profile}"
+  rm -f "${temp_profile}"
 }
 
 require_command curl
