@@ -231,7 +231,7 @@ The release workflow publishes builds for all six supported targets and includes
 
 Requirements:
 
-- Go 1.22 or newer
+- Go 1.26.8 or newer
 - Bash for the Unix installer and local CI commands
 
 Run the standard checks:

@@ -1,7 +1,13 @@
+/*
+ *  Copyright (c) 2024-2026 Mikhail Knyazhev <markus621@yandex.com>. All rights reserved.
+ *  Use of this source code is governed by a BSD 3-Clause license that can be found in the LICENSE file.
+ */
+
 package release
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"io"
@@ -32,7 +38,7 @@ func TestExtractManagerArchiveRequiresPlatformBinaries(t *testing.T) {
 	}
 }
 
-func TestExtractManagerArchiveIgnoresTraversalEntry(t *testing.T) {
+func TestExtractManagerArchiveIgnoresTarTraversalEntry(t *testing.T) {
 	dir := t.TempDir()
 	archivePath := filepath.Join(dir, "release.tar.gz")
 	entries := map[string]string{
@@ -43,7 +49,25 @@ func TestExtractManagerArchiveIgnoresTraversalEntry(t *testing.T) {
 	if err := os.WriteFile(archivePath, managerArchive(t, entries), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	staging := filepath.Join(dir, "staging")
+	assertManagerArchiveSafe(t, archivePath, filepath.Join(dir, "staging"))
+}
+
+func TestExtractManagerArchiveIgnoresZipTraversalEntry(t *testing.T) {
+	dir := t.TempDir()
+	archivePath := filepath.Join(dir, "release.zip")
+	entries := map[string]string{
+		managerBinaryName("gvm"): "gvm",
+		managerBinaryName("go"):  "go",
+		"../../outside":          "must not escape",
+	}
+	if err := os.WriteFile(archivePath, managerZipArchive(t, entries), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	assertManagerArchiveSafe(t, archivePath, filepath.Join(dir, "staging"))
+}
+
+func assertManagerArchiveSafe(t *testing.T, archivePath, staging string) {
+	t.Helper()
 	if err := ExtractManagerArchive(archivePath, staging); err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +76,7 @@ func TestExtractManagerArchiveIgnoresTraversalEntry(t *testing.T) {
 			t.Fatalf("staged %s: %v", name, err)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(dir, "outside")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(filepath.Dir(staging), "outside")); !os.IsNotExist(err) {
 		t.Fatalf("traversal entry escaped staging: err=%v", err)
 	}
 }
@@ -82,6 +106,25 @@ func managerArchive(t *testing.T, entries map[string]string) []byte {
 		t.Fatal(err)
 	}
 	if err := gzipWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return output.Bytes()
+}
+
+func managerZipArchive(t *testing.T, entries map[string]string) []byte {
+	t.Helper()
+	var output bytes.Buffer
+	zipWriter := zip.NewWriter(&output)
+	for name, data := range entries {
+		file, err := zipWriter.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := io.WriteString(file, data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zipWriter.Close(); err != nil {
 		t.Fatal(err)
 	}
 	return output.Bytes()

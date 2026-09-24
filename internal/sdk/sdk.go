@@ -287,6 +287,16 @@ func extractTarGz(path, destination string) (err error) {
 			err = fmt.Errorf("close Go archive gzip: %w", closeErr)
 		}
 	}()
+	root, err := os.OpenRoot(destination)
+	if err != nil {
+		return fmt.Errorf("open SDK extraction root: %w", err)
+	}
+	defer func() {
+		if closeErr := root.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close SDK extraction root: %w", closeErr)
+		}
+	}()
+
 	tarReader := tar.NewReader(reader)
 	for {
 		header, err := tarReader.Next()
@@ -299,17 +309,17 @@ func extractTarGz(path, destination string) (err error) {
 		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeDir {
 			return fmt.Errorf("unsupported Go archive entry type %q", header.Name)
 		}
-		target, err := safeTarget(destination, header.Name)
+		target, err := safeTarget(header.Name)
 		if err != nil {
 			return err
 		}
 		if header.Typeflag == tar.TypeDir {
-			if err := os.MkdirAll(target, 0o755); err != nil {
+			if err := root.MkdirAll(target, 0o755); err != nil {
 				return fmt.Errorf("create archive directory: %w", err)
 			}
 			continue
 		}
-		if err := writeEntry(target, tarReader, header.Mode); err != nil {
+		if err := writeEntry(root, target, tarReader, header.Mode); err != nil {
 			return err
 		}
 	}
@@ -325,16 +335,26 @@ func extractZip(path, destination string) (err error) {
 			err = fmt.Errorf("close Go zip archive: %w", closeErr)
 		}
 	}()
+	root, err := os.OpenRoot(destination)
+	if err != nil {
+		return fmt.Errorf("open SDK extraction root: %w", err)
+	}
+	defer func() {
+		if closeErr := root.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close SDK extraction root: %w", closeErr)
+		}
+	}()
+
 	for _, entry := range archive.File {
 		if entry.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("unsupported symbolic link in Go archive: %s", entry.Name)
 		}
-		target, err := safeTarget(destination, entry.Name)
+		target, err := safeTarget(entry.Name)
 		if err != nil {
 			return err
 		}
 		if entry.FileInfo().IsDir() {
-			if err := os.MkdirAll(target, 0o755); err != nil {
+			if err := root.MkdirAll(target, 0o755); err != nil {
 				return fmt.Errorf("create zip directory: %w", err)
 			}
 			continue
@@ -343,7 +363,7 @@ func extractZip(path, destination string) (err error) {
 		if err != nil {
 			return fmt.Errorf("open zip entry: %w", err)
 		}
-		err = writeEntry(target, file, int64(entry.Mode().Perm()))
+		err = writeEntry(root, target, file, int64(entry.Mode().Perm()))
 		closeErr := file.Close()
 		if err == nil {
 			err = closeErr
@@ -355,15 +375,17 @@ func extractZip(path, destination string) (err error) {
 	return nil
 }
 
-func writeEntry(target string, source io.Reader, mode int64) error {
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return fmt.Errorf("create archive parent: %w", err)
+func writeEntry(root *os.Root, target string, source io.Reader, mode int64) error {
+	if parent := filepath.Dir(target); parent != "." {
+		if err := root.MkdirAll(parent, 0o755); err != nil {
+			return fmt.Errorf("create archive parent: %w", err)
+		}
 	}
 	permissions := os.FileMode(mode) & 0o777
 	if permissions == 0 {
 		permissions = 0o644
 	}
-	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, permissions)
+	file, err := root.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, permissions)
 	if err != nil {
 		return fmt.Errorf("create archive file: %w", err)
 	}
@@ -377,16 +399,15 @@ func writeEntry(target string, source io.Reader, mode int64) error {
 	return nil
 }
 
-func safeTarget(destination, name string) (string, error) {
+func safeTarget(name string) (string, error) {
 	name = strings.ReplaceAll(name, "\\", "/")
-	clean := filepath.Clean(filepath.FromSlash(name))
-	if filepath.IsAbs(clean) || clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+	relative := filepath.FromSlash(name)
+	if name == "" || !filepath.IsLocal(relative) {
 		return "", fmt.Errorf("unsafe Go archive path %q", name)
 	}
-	target := filepath.Join(destination, clean)
-	rel, err := filepath.Rel(destination, target)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	clean := filepath.Clean(relative)
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("unsafe Go archive path %q", name)
 	}
-	return target, nil
+	return clean, nil
 }

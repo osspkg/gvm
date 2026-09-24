@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -49,6 +48,16 @@ func extractTarGz(path, destination string) (err error) {
 		}
 	}()
 
+	root, err := os.OpenRoot(destination)
+	if err != nil {
+		return fmt.Errorf("open release staging root: %w", err)
+	}
+	defer func() {
+		if closeErr := root.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close release staging root: %w", closeErr)
+		}
+	}()
+
 	tarReader := tar.NewReader(reader)
 	for {
 		header, err := tarReader.Next()
@@ -65,11 +74,11 @@ func extractTarGz(path, destination string) (err error) {
 		if !ok {
 			continue
 		}
-		if err := writeManagerFile(filepath.Join(destination, name), tarReader, header.Mode); err != nil {
+		if err := writeManagerFile(root, name, tarReader, header.Mode); err != nil {
 			return err
 		}
 	}
-	return validateManagerFiles(destination)
+	return validateManagerFiles(root)
 }
 
 func extractZip(path, destination string) (err error) {
@@ -80,6 +89,16 @@ func extractZip(path, destination string) (err error) {
 	defer func() {
 		if closeErr := archive.Close(); closeErr != nil && err == nil {
 			err = fmt.Errorf("close release zip archive: %w", closeErr)
+		}
+	}()
+
+	root, err := os.OpenRoot(destination)
+	if err != nil {
+		return fmt.Errorf("open release staging root: %w", err)
+	}
+	defer func() {
+		if closeErr := root.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close release staging root: %w", closeErr)
 		}
 	}()
 
@@ -95,7 +114,7 @@ func extractZip(path, destination string) (err error) {
 		if err != nil {
 			return fmt.Errorf("open release entry: %w", err)
 		}
-		err = writeManagerFile(filepath.Join(destination, name), file, int64(entry.Mode().Perm()))
+		err = writeManagerFile(root, name, file, int64(entry.Mode().Perm()))
 		closeErr := file.Close()
 		if err == nil {
 			err = closeErr
@@ -104,7 +123,7 @@ func extractZip(path, destination string) (err error) {
 			return err
 		}
 	}
-	return validateManagerFiles(destination)
+	return validateManagerFiles(root)
 }
 
 func managerName(name string) (string, bool) {
@@ -123,12 +142,27 @@ func managerName(name string) (string, bool) {
 	}
 }
 
-func writeManagerFile(path string, source io.Reader, mode int64) error {
+func writeManagerFile(root *os.Root, name string, source io.Reader, mode int64) error {
+	switch name {
+	case "gvm":
+		return writeManagerFileAt(root, "gvm", source, mode)
+	case "go":
+		return writeManagerFileAt(root, "go", source, mode)
+	case "gvm.exe":
+		return writeManagerFileAt(root, "gvm.exe", source, mode)
+	case "go.exe":
+		return writeManagerFileAt(root, "go.exe", source, mode)
+	default:
+		return fmt.Errorf("unsupported manager binary: %s", name)
+	}
+}
+
+func writeManagerFileAt(root *os.Root, name string, source io.Reader, mode int64) error {
 	permissions := os.FileMode(mode) & 0o777
 	if permissions == 0 {
 		permissions = 0o755
 	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, permissions)
+	file, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, permissions)
 	if err != nil {
 		return fmt.Errorf("create staged binary: %w", err)
 	}
@@ -142,13 +176,13 @@ func writeManagerFile(path string, source io.Reader, mode int64) error {
 	return nil
 }
 
-func validateManagerFiles(destination string) error {
+func validateManagerFiles(root *os.Root) error {
 	names := []string{"gvm", "go"}
 	if runtime.GOOS == "windows" {
 		names = []string{"gvm.exe", "go.exe"}
 	}
 	for _, name := range names {
-		info, err := os.Stat(filepath.Join(destination, name))
+		info, err := root.Stat(name)
 		if err != nil || info.IsDir() {
 			return fmt.Errorf("release archive is missing %s", name)
 		}

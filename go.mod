@@ -1,3 +1,3 @@
 module github.com/osspkg/gvm
 
-go 1.22
+go 1.26.8

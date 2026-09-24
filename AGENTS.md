@@ -3,7 +3,7 @@
 ## Repository scope
 
 - Work from the repository root.
-- This is the Go module `github.com/osspkg/gvm`. The minimum declared Go version is 1.22; CI and lint configuration currently use Go 1.26.
+- This is the Go module `github.com/osspkg/gvm`. The minimum declared Go version is 1.26.8; CI and lint configuration use Go 1.26.8.
 - Keep command entrypoints in `cmd/gvm` and `cmd/go`.
 - Keep implementation packages private under `internal/`:
   - `internal/app` orchestrates CLI commands.
