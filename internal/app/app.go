@@ -110,6 +110,9 @@ func (a *App) RunGVM(ctx context.Context, args []string) error {
 }
 
 func (a *App) RunGo(ctx context.Context, args []string) error {
+	if environmentValue(a.Environ, env.WrapperActiveKey) == "1" {
+		return a.runActiveGo(ctx, args)
+	}
 	cfg, err := a.resolveConfig()
 	if err != nil {
 		return err
@@ -122,11 +125,34 @@ func (a *App) RunGo(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	prepared.Values = env.WithValue(prepared.Values, env.WrapperActiveKey, "1")
 	goBinary, err := sdk.RealGoBinary(sdkRoot)
 	if err != nil {
 		return err
 	}
 	return runner.Run(ctx, goBinary, a.CWD, args, prepared.Values, a.Out, a.Err)
+}
+
+func (a *App) runActiveGo(ctx context.Context, args []string) error {
+	goroot := environmentValue(a.Environ, env.RootKey)
+	if goroot == "" {
+		return errors.New("GVM_WRAPPER_ACTIVE requires GOROOT")
+	}
+	goBinary, err := sdk.RealGoBinaryOnly(goroot)
+	if err != nil {
+		return fmt.Errorf("resolve active Go wrapper target: %w", err)
+	}
+	return runner.Run(ctx, goBinary, a.CWD, args, a.Environ, a.Out, a.Err)
+}
+
+func environmentValue(values []string, key string) string {
+	for _, item := range values {
+		name, value, ok := strings.Cut(item, "=")
+		if ok && name == key {
+			return value
+		}
+	}
+	return ""
 }
 
 func (a *App) install(ctx context.Context, args []string) error {

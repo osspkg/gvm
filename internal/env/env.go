@@ -15,15 +15,16 @@ import (
 )
 
 const (
-	HomeKey       = "GVM_HOME"
-	GoVersionKey  = "GVM_GO_VERSION"
-	VenvKey       = "GVM_VENV"
-	ToolKey       = "GVM_TOOL"
-	RootKey       = "GOROOT"
-	PathKey       = "PATH"
-	GOPATHKey     = "GOPATH"
-	GOBINKey      = "GOBIN"
-	GOMODCACHEKey = "GOMODCACHE"
+	HomeKey          = "GVM_HOME"
+	GoVersionKey     = "GVM_GO_VERSION"
+	VenvKey          = "GVM_VENV"
+	ToolKey          = "GVM_TOOL"
+	WrapperActiveKey = "GVM_WRAPPER_ACTIVE"
+	RootKey          = "GOROOT"
+	PathKey          = "PATH"
+	GOPATHKey        = "GOPATH"
+	GOBINKey         = "GOBIN"
+	GOMODCACHEKey    = "GOMODCACHE"
 )
 
 // Result contains the process environment and managed paths for an active config.

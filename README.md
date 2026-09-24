@@ -101,6 +101,8 @@ gvm run gopls version
 
 For every newly installed SDK, gvm preserves the official executable as `bin/go.bin` and places the gvm `go` wrapper at `bin/go`. This keeps IDEs that discover the SDK by its `GOROOT` path inside the managed environment. Existing SDKs are not migrated; the behavior applies only to newly installed SDKs.
 
+The wrapper passes the internal `GVM_WRAPPER_ACTIVE=1` marker to the real Go process. If another wrapper is invoked from that process, it directly uses `GOROOT/bin/go.bin` and does not resolve the configuration again.
+
 ## Commands
 
 | Command | Description |

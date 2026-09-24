@@ -54,6 +54,8 @@ GOPROXY=https://proxy.golang.org
 `GVM_TOOL` may be repeated; each occurrence adds one tool. Preserve unrelated variables when changing only `GVM_GO_VERSION`.
 The former plural key `GVM_TOOLS` is not migrated; rename it manually in existing `.gvmrc` files.
 
+The internal wrapper guard uses `GVM_WRAPPER_ACTIVE=1` to prevent nested wrapper resolution.
+
 Use:
 
 `sh
