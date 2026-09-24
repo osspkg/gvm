@@ -180,7 +180,7 @@ func ParseChecksums(data []byte) map[string]string {
 
 func DownloadPath(home string) (string, error) {
 	path := filepath.Join(home, ".cache", "gvm-update")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(path, 0o700); err != nil {
 		return "", fmt.Errorf("create update directory: %w", err)
 	}
 	return path, nil
