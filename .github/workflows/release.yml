@@ -37,16 +37,17 @@ jobs:
           if [[ "${EVENT_NAME}" == "push" && "${REF_TYPE}" == "tag" ]]; then
             tag="${REF_NAME}"
           else
-            latest="$(git tag --list 'v0.*.0' --sort=-v:refname | head -n 1)"
+            release_date="$(date -u +%Y%m%d)"
+            latest="$(git tag --list "v0.${release_date}.*" --sort=-v:refname | head -n 1)"
             if [[ -z "${latest}" ]]; then
-              tag="v0.1.0"
-            elif [[ "${latest}" =~ ^v0\.([0-9]+)\.0$ ]]; then
-              minor="${BASH_REMATCH[1]}"
-              tag="v0.$((10#${minor} + 1)).0"
+              increment=0
+            elif [[ "${latest}" =~ ^v0\.${release_date}\.([0-9]+)$ ]]; then
+              increment=$((10#${BASH_REMATCH[1]} + 1))
             else
-              echo "::error::Latest release tag must match v0.<minor>.0: ${latest}" >&2
+              echo "::error::Latest release tag must match v0.${release_date}.<increment>: ${latest}" >&2
               exit 1
             fi
+            tag="v0.${release_date}.${increment}"
 
             if git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
               echo "::error::Release tag already exists: ${tag}" >&2
@@ -59,8 +60,8 @@ jobs:
             git push origin "refs/tags/${tag}"
           fi
 
-          if [[ ! "${tag}" =~ ^v0\.[0-9]+\.0$ ]]; then
-            echo "::error::Release tag must match v0.<minor>.0: ${tag}" >&2
+          if [[ ! "${tag}" =~ ^v0\.[0-9]{8}\.[0-9]+$ ]]; then
+            echo "::error::Release tag must match v0.YYYYMMDD.<increment>: ${tag}" >&2
             exit 1
           fi
 
