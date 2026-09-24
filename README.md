@@ -116,7 +116,7 @@ The `go` and `gofmt` wrappers pass the internal `GVM_WRAPPER_ACTIVE=1` marker to
 | `gvm local [version]` | Install an SDK and configure `.gvmrc` in the current directory. Without a version, infer it from `go.work` first, then `go.mod`. |
 | `gvm venv` | Create `.venv/bin`, enable `GVM_VENV=true`, and install configured tools. |
 | `gvm run <binary> [args...]` | Run a binary using the active SDK environment. |
-| `gvm update` | Update the `gvm`, `go`, and `gofmt` manager binaries from the latest GitHub Release. |
+| `gvm update` | Update or repair the `gvm`, `go`, and `gofmt` manager binaries from the latest GitHub Release. |
 | `gvm version` | Print the gvm version. |
 | `go [args...]` | Run the selected Go SDK with the active environment. |
 | `gofmt [args...]` | Run the selected SDK's gofmt with the active environment. |
@@ -231,7 +231,7 @@ Each path is included once, and empty path components are removed.
 
 ## Updates and releases
 
-`gvm update` retrieves the latest release from `github.com/osspkg/gvm`, selects the archive for the current operating system and architecture, verifies `checksums.txt`, and updates only the manager binaries (`gvm`, `go`, and `gofmt`). Installed Go SDKs are not modified.
+`gvm update` retrieves the latest release from `github.com/osspkg/gvm`, selects the archive for the current operating system and architecture, verifies `checksums.txt`, and updates or repairs only the manager binaries (`gvm`, `go`, and `gofmt`); if one is missing, the current release is downloaded again. Installed Go SDKs are not modified.
 
 Release archives use these names:
 

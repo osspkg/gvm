@@ -414,8 +414,12 @@ func (a *App) update(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	home, err := a.home()
+	if err != nil {
+		return err
+	}
 	latestVersion := strings.TrimPrefix(latest.TagName, "v")
-	if version.Value != "dev" && strings.TrimPrefix(version.Value, "v") == latestVersion {
+	if version.Value != "dev" && strings.TrimPrefix(version.Value, "v") == latestVersion && managerBinariesReady(filepath.Join(home, "bin")) {
 		_, err := fmt.Fprintf(a.Out, "gvm %s is already current\n", latest.TagName)
 		return err
 	}
@@ -424,10 +428,6 @@ func (a *App) update(ctx context.Context) error {
 		return err
 	}
 	checksums, err := release.ChecksumAsset(latest)
-	if err != nil {
-		return err
-	}
-	home, err := a.home()
 	if err != nil {
 		return err
 	}
@@ -535,6 +535,16 @@ func managerBinaryNames() []string {
 		return []string{"gvm.exe", "go.exe", "gofmt.exe"}
 	}
 	return []string{"gvm", "go", "gofmt"}
+}
+
+func managerBinariesReady(binDir string) bool {
+	for _, name := range managerBinaryNames() {
+		info, err := os.Stat(filepath.Join(binDir, name))
+		if err != nil || info.IsDir() {
+			return false
+		}
+	}
+	return true
 }
 
 func replaceManagerBinaries(staging, binDir string) error {

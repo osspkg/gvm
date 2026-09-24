@@ -87,6 +87,7 @@ The release workflow cross-builds these binaries for Linux, macOS, and Windows o
 - Keep `install.sh` and `install.ps1` thin and repeatable. They create `GVM_HOME` layout, download a published release, install `gvm`, `go`, and `gofmt`, and configure user profiles/environment variables idempotently.
 - Test installer syntax with `bash -n install.sh`. Do not execute installers against the real home directory during validation; use an isolated home or inspect the script.
 - Changes to GitHub release behavior must preserve SHA-256 verification and atomic replacement of manager binaries (`gvm`, `go`, and `gofmt`) without altering installed SDKs.
+- `gvm update` must repair a missing manager binary even when the installed version is already the latest release.
 - Do not run publication, deployment, profile mutation, or release commands merely as validation. These actions require an explicit request.
 
 ## Handoff checklist
