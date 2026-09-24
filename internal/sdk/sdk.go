@@ -154,7 +154,7 @@ func hasSDK(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-func (s *Store) fetchMetadata(ctx context.Context) ([]Release, error) {
+func (s *Store) fetchMetadata(ctx context.Context) (releases []Release, err error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, s.MetadataURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create Go metadata request: %w", err)
@@ -163,15 +163,19 @@ func (s *Store) fetchMetadata(ctx context.Context) ([]Release, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetch Go metadata: %w", err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close Go metadata response: %w", closeErr)
+		}
+	}()
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("fetch Go metadata: unexpected status %s", response.Status)
 	}
-	var releases []Release
-	if err := json.NewDecoder(io.LimitReader(response.Body, 16<<20)).Decode(&releases); err != nil {
+	var result []Release
+	if err := json.NewDecoder(io.LimitReader(response.Body, 16<<20)).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode Go metadata: %w", err)
 	}
-	return releases, nil
+	return result, nil
 }
 
 func selectArchive(releases []Release, version, goos, goarch string) (File, error) {
@@ -187,7 +191,7 @@ func selectArchive(releases []Release, version, goos, goarch string) (File, erro
 		}
 		return File{}, fmt.Errorf("sdk archive not found for %s/%s Go %s", goos, goarch, version)
 	}
-	return File{}, fmt.Errorf("Go version %s is not available", version)
+	return File{}, fmt.Errorf("go version %s is not available", version)
 }
 
 func supportedPlatform(goos, goarch string) bool {
@@ -197,7 +201,7 @@ func supportedPlatform(goos, goarch string) bool {
 	return goarch == "amd64" || goarch == "arm64"
 }
 
-func (s *Store) download(ctx context.Context, archive File) (string, error) {
+func (s *Store) download(ctx context.Context, archive File) (name string, err error) {
 	url := strings.TrimRight(s.DownloadBaseURL, "/") + "/" + archive.Filename
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -207,7 +211,11 @@ func (s *Store) download(ctx context.Context, archive File) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("download Go archive: %w", err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close Go archive response: %w", closeErr)
+		}
+	}()
 	if response.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("download Go archive: unexpected status %s", response.Status)
 	}
@@ -215,7 +223,7 @@ func (s *Store) download(ctx context.Context, archive File) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create archive temp file: %w", err)
 	}
-	name := temp.Name()
+	name = temp.Name()
 	var copyErr error
 	if s.Progress != nil {
 		_, copyErr = s.Progress.Copy(ctx, temp, response.Body, archive.Filename, response.ContentLength)
@@ -232,19 +240,23 @@ func (s *Store) download(ctx context.Context, archive File) (string, error) {
 	return name, nil
 }
 
-func verifySHA256(path, expected string) error {
+func verifySHA256(path, expected string) (err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open archive for checksum: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close archive: %w", closeErr)
+		}
+	}()
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
 		return fmt.Errorf("hash archive: %w", err)
 	}
 	actual := hex.EncodeToString(hash.Sum(nil))
 	if !strings.EqualFold(actual, expected) {
-		return fmt.Errorf("Go archive checksum mismatch: got %s, want %s", actual, expected)
+		return fmt.Errorf("go archive checksum mismatch: got %s, want %s", actual, expected)
 	}
 	return nil
 }
@@ -256,17 +268,25 @@ func extractArchive(path, destination, filename string) error {
 	return extractTarGz(path, destination)
 }
 
-func extractTarGz(path, destination string) error {
+func extractTarGz(path, destination string) (err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open Go archive: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close Go archive: %w", closeErr)
+		}
+	}()
 	reader, err := gzip.NewReader(file)
 	if err != nil {
 		return fmt.Errorf("read Go archive gzip: %w", err)
 	}
-	defer reader.Close()
+	defer func() {
+		if closeErr := reader.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close Go archive gzip: %w", closeErr)
+		}
+	}()
 	tarReader := tar.NewReader(reader)
 	for {
 		header, err := tarReader.Next()
@@ -295,12 +315,16 @@ func extractTarGz(path, destination string) error {
 	}
 }
 
-func extractZip(path, destination string) error {
+func extractZip(path, destination string) (err error) {
 	archive, err := zip.OpenReader(path)
 	if err != nil {
 		return fmt.Errorf("open Go zip archive: %w", err)
 	}
-	defer archive.Close()
+	defer func() {
+		if closeErr := archive.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close Go zip archive: %w", closeErr)
+		}
+	}()
 	for _, entry := range archive.File {
 		if entry.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("unsupported symbolic link in Go archive: %s", entry.Name)

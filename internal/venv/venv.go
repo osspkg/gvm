@@ -61,6 +61,7 @@ func EnsureTools(ctx context.Context, cwd, sdkRoot string, tools []string, envir
 	if err != nil {
 		return fmt.Errorf("find SDK go for tools: %w", err)
 	}
+	//nolint:gosec // goBinary is resolved from the selected SDK directory, not shell input.
 	command := exec.CommandContext(ctx, goBinary, append([]string{"install"}, tools...)...)
 	command.Dir = cwd
 	command.Env = environment

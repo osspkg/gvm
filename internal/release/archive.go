@@ -28,17 +28,27 @@ func ExtractManagerArchive(archivePath, destination string) error {
 	return extractTarGz(archivePath, destination)
 }
 
-func extractTarGz(path, destination string) error {
+func extractTarGz(path, destination string) (err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open release archive: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close release archive: %w", closeErr)
+		}
+	}()
+
 	reader, err := gzip.NewReader(file)
 	if err != nil {
 		return fmt.Errorf("read release archive gzip: %w", err)
 	}
-	defer reader.Close()
+	defer func() {
+		if closeErr := reader.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close release archive gzip: %w", closeErr)
+		}
+	}()
+
 	tarReader := tar.NewReader(reader)
 	for {
 		header, err := tarReader.Next()
@@ -62,12 +72,17 @@ func extractTarGz(path, destination string) error {
 	return validateManagerFiles(destination)
 }
 
-func extractZip(path, destination string) error {
+func extractZip(path, destination string) (err error) {
 	archive, err := zip.OpenReader(path)
 	if err != nil {
 		return fmt.Errorf("open release zip archive: %w", err)
 	}
-	defer archive.Close()
+	defer func() {
+		if closeErr := archive.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close release zip archive: %w", closeErr)
+		}
+	}()
+
 	for _, entry := range archive.File {
 		if entry.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("symbolic link in release archive: %s", entry.Name)

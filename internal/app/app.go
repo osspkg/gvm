@@ -1,3 +1,8 @@
+/*
+ *  Copyright (c) 2024-2026 Mikhail Knyazhev <markus621@yandex.com>. All rights reserved.
+ *  Use of this source code is governed by a BSD 3-Clause license that can be found in the LICENSE file.
+ */
+
 package app
 
 import (
@@ -433,6 +438,7 @@ func (a *App) startWindowsUpdater(staging, binDir string) error {
 	if err := copyFile(current, helper); err != nil {
 		return fmt.Errorf("prepare Windows updater: %w", err)
 	}
+	//nolint:gosec // helper is a copy of the running gvm executable in a private temp directory.
 	command := exec.Command(helper, "__apply-update", pending, binDir)
 	command.Stdout = a.Out
 	command.Stderr = a.Err
@@ -534,22 +540,30 @@ func replaceManagerBinaries(staging, binDir string) error {
 	return nil
 }
 
-func copyFile(source, destination string) error {
+func copyFile(source, destination string) (err error) {
 	input, err := os.Open(source)
 	if err != nil {
 		return err
 	}
-	defer input.Close()
+	defer func() {
+		if closeErr := input.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close source file: %w", closeErr)
+		}
+	}()
+	//nolint:gosec // the updater binary must remain owner-readable and executable.
 	output, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o700)
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(output, input); err != nil {
-		_ = output.Close()
-		_ = os.Remove(destination)
-		return err
+	if _, copyErr := io.Copy(output, input); copyErr != nil {
+		closeErr := output.Close()
+		removeErr := os.Remove(destination)
+		return fmt.Errorf("copy file: %w", errors.Join(copyErr, closeErr, removeErr))
 	}
-	return output.Close()
+	if err := output.Close(); err != nil {
+		return fmt.Errorf("close destination file: %w", err)
+	}
+	return nil
 }
 
 func (a *App) printHelp() {

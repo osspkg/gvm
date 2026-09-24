@@ -83,7 +83,7 @@ func Parse(data []byte) (Values, error) {
 
 		value, err := parseValue(strings.TrimSpace(rawValue))
 		if err != nil {
-			return Values{}, fmt.Errorf("line %d: %w: %s", lineNumber, ErrInvalid, err)
+			return Values{}, fmt.Errorf("line %d: %w: %w", lineNumber, ErrInvalid, err)
 		}
 		if key == "GVM_TOOLS" {
 			if value == "" {

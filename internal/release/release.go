@@ -51,7 +51,7 @@ func NewClient(client *http.Client, reporter *progress.Reporter) *Client {
 	return &Client{HTTP: client, APIBase: DefaultAPIBase, Repository: Repository, Progress: reporter}
 }
 
-func (c *Client) Latest(ctx context.Context) (Release, error) {
+func (c *Client) Latest(ctx context.Context) (result Release, err error) {
 	url := strings.TrimRight(c.APIBase, "/") + "/repos/" + c.Repository + "/releases/latest"
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -63,7 +63,11 @@ func (c *Client) Latest(ctx context.Context) (Release, error) {
 	if err != nil {
 		return Release{}, fmt.Errorf("fetch GitHub release: %w", err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close GitHub release response: %w", closeErr)
+		}
+	}()
 	if response.StatusCode != http.StatusOK {
 		return Release{}, fmt.Errorf("fetch GitHub release: unexpected status %s", response.Status)
 	}
@@ -104,7 +108,7 @@ func ChecksumAsset(release Release) (Asset, error) {
 	return Asset{}, fmt.Errorf("release %s has no checksums.txt", release.TagName)
 }
 
-func (c *Client) Download(ctx context.Context, asset Asset, destination string) error {
+func (c *Client) Download(ctx context.Context, asset Asset, destination string) (err error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.BrowserDownloadURL, nil)
 	if err != nil {
 		return fmt.Errorf("create release asset request: %w", err)
@@ -114,7 +118,11 @@ func (c *Client) Download(ctx context.Context, asset Asset, destination string) 
 	if err != nil {
 		return fmt.Errorf("download release asset: %w", err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close release asset response: %w", closeErr)
+		}
+	}()
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("download release asset: unexpected status %s", response.Status)
 	}
@@ -138,12 +146,16 @@ func (c *Client) Download(ctx context.Context, asset Asset, destination string) 
 	return nil
 }
 
-func VerifyChecksum(path, expected string) error {
+func VerifyChecksum(path, expected string) (err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open release asset for checksum: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close release asset: %w", closeErr)
+		}
+	}()
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
 		return fmt.Errorf("hash release asset: %w", err)
