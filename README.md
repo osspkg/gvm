@@ -25,7 +25,8 @@ Supported platforms:
 - Install tools from repeated `GVM_TOOL` entries.
 - Run binaries with deterministic, deduplicated `PATH` ordering.
 - List and remove installed SDK versions.
-- Update the `gvm` and `go` manager binaries from GitHub Releases.
+- Update the `gvm`, `go`, and `gofmt` manager binaries from GitHub Releases.
+- Use managed `go` and `gofmt` wrappers with recursive-launch protection.
 
 ## Installation
 
@@ -99,9 +100,9 @@ gvm run gopls version
 
 `gvm venv` creates `.venv/bin`, adds `.venv/` to `.gitignore`, and installs the configured tools into the project environment.
 
-For every newly installed SDK, gvm preserves the official executable as `bin/go.bin` and places the gvm `go` wrapper at `bin/go`. This keeps IDEs that discover the SDK by its `GOROOT` path inside the managed environment. Existing SDKs are not migrated; the behavior applies only to newly installed SDKs.
+For every newly installed SDK, gvm preserves the official executables as `bin/go.bin` and `bin/gofmt.bin`, then places the gvm `go` and `gofmt` wrappers at `bin/go` and `bin/gofmt`. This keeps IDEs that discover the SDK by its `GOROOT` path inside the managed environment. Existing SDKs are not migrated; the behavior applies only to newly installed SDKs.
 
-The wrapper passes the internal `GVM_WRAPPER_ACTIVE=1` marker to the real Go process. If another wrapper is invoked from that process, it directly uses `GOROOT/bin/go.bin` and does not resolve the configuration again.
+The `go` and `gofmt` wrappers pass the internal `GVM_WRAPPER_ACTIVE=1` marker to the real Go process. If another managed wrapper is invoked from that process, it directly uses the matching `GOROOT/bin/<tool>.bin` and does not resolve the configuration again.
 
 ## Commands
 
@@ -115,9 +116,10 @@ The wrapper passes the internal `GVM_WRAPPER_ACTIVE=1` marker to the real Go pro
 | `gvm local [version]` | Install an SDK and configure `.gvmrc` in the current directory. Without a version, infer it from `go.work` first, then `go.mod`. |
 | `gvm venv` | Create `.venv/bin`, enable `GVM_VENV=true`, and install configured tools. |
 | `gvm run <binary> [args...]` | Run a binary using the active SDK environment. |
-| `gvm update` | Update the `gvm` and `go` manager binaries from the latest GitHub Release. |
+| `gvm update` | Update the `gvm`, `go`, and `gofmt` manager binaries from the latest GitHub Release. |
 | `gvm version` | Print the gvm version. |
 | `go [args...]` | Run the selected Go SDK with the active environment. |
+| `gofmt [args...]` | Run the selected SDK's gofmt with the active environment. |
 
 `gvm rm` accepts a Go version, not a filesystem path. It does not edit `.gvmrc`; if the removed version remains selected, the next `go` invocation may install it again.
 
@@ -193,13 +195,14 @@ The path separator is selected for the host platform automatically.
 $GVM_HOME/
 ├── bin/
 │   ├── gvm
-│   └── go
+│   ├── go
+│   └── gofmt
 └── .cache/
     ├── bin/              # global tools installed with go install
     ├── pkg/              # Go module cache
     └── src/
-        └── go<version>/  # installed Go SDK; bin/go is the gvm wrapper
-                          # and bin/go.bin is the official Go executable
+        └── go<version>/  # installed Go SDK; bin/go and bin/gofmt are gvm wrappers
+                          # bin/go.bin and bin/gofmt.bin are the official SDK executables
 ```
 
 Project-local state:
@@ -216,7 +219,7 @@ Project-local state:
 
 ## Running binaries
 
-`gvm run` and the `go` wrapper use the same environment construction. Binary lookup order is:
+`gvm run`, the `go` wrapper, and the `gofmt` wrapper use the same environment construction. Binary lookup order is:
 
 1. `<project>/.venv/bin`
 2. `$GVM_HOME/.cache/bin`
@@ -228,7 +231,7 @@ Each path is included once, and empty path components are removed.
 
 ## Updates and releases
 
-`gvm update` retrieves the latest release from `github.com/osspkg/gvm`, selects the archive for the current operating system and architecture, verifies `checksums.txt`, and updates only the manager binaries. Installed Go SDKs are not modified.
+`gvm update` retrieves the latest release from `github.com/osspkg/gvm`, selects the archive for the current operating system and architecture, verifies `checksums.txt`, and updates only the manager binaries (`gvm`, `go`, and `gofmt`). Installed Go SDKs are not modified.
 
 Release archives use these names:
 
@@ -261,6 +264,7 @@ Build the command binaries:
 ```sh
 go build -o bin/gvm ./cmd/gvm
 go build -o bin/go ./cmd/go
+go build -o bin/gofmt ./cmd/gofmt
 ```
 
 Cross-compile an individual target:

@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-// ExtractManagerArchive extracts only the gvm and go binaries from a verified release archive.
+// ExtractManagerArchive extracts only the gvm, go, and gofmt binaries from a verified release archive.
 func ExtractManagerArchive(archivePath, destination string) error {
 	if err := os.MkdirAll(destination, 0o755); err != nil {
 		return fmt.Errorf("create release staging directory: %w", err)
@@ -135,7 +135,7 @@ func managerName(name string) (string, bool) {
 		return "", false
 	}
 	switch name {
-	case "gvm", "go", "gvm.exe", "go.exe":
+	case "gvm", "go", "gofmt", "gvm.exe", "go.exe", "gofmt.exe":
 		return name, true
 	default:
 		return "", false
@@ -148,10 +148,14 @@ func writeManagerFile(root *os.Root, name string, source io.Reader, mode int64) 
 		return writeManagerFileAt(root, "gvm", source, mode)
 	case "go":
 		return writeManagerFileAt(root, "go", source, mode)
+	case "gofmt":
+		return writeManagerFileAt(root, "gofmt", source, mode)
 	case "gvm.exe":
 		return writeManagerFileAt(root, "gvm.exe", source, mode)
 	case "go.exe":
 		return writeManagerFileAt(root, "go.exe", source, mode)
+	case "gofmt.exe":
+		return writeManagerFileAt(root, "gofmt.exe", source, mode)
 	default:
 		return fmt.Errorf("unsupported manager binary: %s", name)
 	}
@@ -177,9 +181,9 @@ func writeManagerFileAt(root *os.Root, name string, source io.Reader, mode int64
 }
 
 func validateManagerFiles(root *os.Root) error {
-	names := []string{"gvm", "go"}
+	names := []string{"gvm", "go", "gofmt"}
 	if runtime.GOOS == "windows" {
-		names = []string{"gvm.exe", "go.exe"}
+		names = []string{"gvm.exe", "go.exe", "gofmt.exe"}
 	}
 	for _, name := range names {
 		info, err := root.Stat(name)

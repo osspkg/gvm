@@ -21,6 +21,7 @@ try {
     Expand-Archive -Path $archivePath -DestinationPath $tempDir -Force
     Copy-Item (Join-Path $tempDir "gvm.exe") (Join-Path $binDir "gvm.exe") -Force
     Copy-Item (Join-Path $tempDir "go.exe") (Join-Path $binDir "go.exe") -Force
+    Copy-Item (Join-Path $tempDir "gofmt.exe") (Join-Path $binDir "gofmt.exe") -Force
 
     [Environment]::SetEnvironmentVariable("GVM_HOME", $gvmHome, "User")
     $pathEntry = $binDir.TrimEnd("\")

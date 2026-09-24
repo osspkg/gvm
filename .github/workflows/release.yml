@@ -110,11 +110,12 @@ jobs:
           fi
           go build -trimpath -ldflags "-s -w -X github.com/osspkg/gvm/internal/version.Value=${VERSION}" -o "${stage}/gvm${suffix}" ./cmd/gvm
           go build -trimpath -ldflags "-s -w -X github.com/osspkg/gvm/internal/version.Value=${VERSION}" -o "${stage}/go${suffix}" ./cmd/go
+          go build -trimpath -ldflags "-s -w -X github.com/osspkg/gvm/internal/version.Value=${VERSION}" -o "${stage}/gofmt${suffix}" ./cmd/gofmt
           archive="gvm_${version}_${GOOS}_${GOARCH}.${extension}"
           if [ "${GOOS}" = "windows" ]; then
-            (cd "${stage}" && zip -q "${GITHUB_WORKSPACE}/${archive}" "gvm.exe" "go.exe")
+            (cd "${stage}" && zip -q "${GITHUB_WORKSPACE}/${archive}" "gvm.exe" "go.exe" "gofmt.exe")
           else
-            tar -czf "${archive}" -C "${stage}" gvm go
+            tar -czf "${archive}" -C "${stage}" gvm go gofmt
           fi
           sha256sum "${archive}" > "${archive}.sha256"
       - uses: actions/upload-artifact@v4

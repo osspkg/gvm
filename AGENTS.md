@@ -4,7 +4,8 @@
 
 - Work from the repository root.
 - This is the Go module `github.com/osspkg/gvm`. The minimum declared Go version is 1.26.8; CI and lint configuration use Go 1.26.8.
-- Keep command entrypoints in `cmd/gvm` and `cmd/go`.
+- Keep command entrypoints in `cmd/gvm`, `cmd/go`, and `cmd/gofmt`.
+- Keep the `gofmt` wrapper entrypoint in `cmd/gofmt`.
 - Keep implementation packages private under `internal/`:
   - `internal/app` orchestrates CLI commands.
   - `internal/config` parses and writes safe dotenv-style `.gvmrc` files.
@@ -21,8 +22,8 @@
 - Preserve unrelated environment entries when changing only `GVM_GO_VERSION`, `GVM_VENV`, or `GVM_TOOL`.
 - When `gvm local` creates a project-local `.gvmrc` without an explicit version, inspect `go.work` first and `go.mod` second, taking the valid `go` directive as `GVM_GO_VERSION`. If both files exist, `go.work` wins; if neither has a valid directive, return an actionable error instead of selecting the system Go implicitly.
 - Preserve the resolution order: process environment, nearest local `.gvmrc` from the current directory or its parents, global `$GVM_HOME/.gvmrc`, then defaults. Managed `GOROOT`, `GOPATH`, `GOMODCACHE`, `GOBIN`, and `PATH` must not be overridden by project config.
-- The Go wrapper sets `GVM_WRAPPER_ACTIVE=1` for the selected real Go process; a nested wrapper must use `GOROOT/bin/go.bin` directly and return an error when that preserved binary is absent.
-- Keep SDKs under `$GVM_HOME/.cache/src/go<version>`, global tools under `$GVM_HOME/.cache/bin`, module cache under `$GVM_HOME/.cache/pkg`, and manager binaries under `$GVM_HOME/bin`.
+- The Go and gofmt wrappers set `GVM_WRAPPER_ACTIVE=1` for the selected real Go process; a nested wrapper must use the matching `GOROOT/bin/<tool>.bin` directly and return an error when that preserved binary is absent.
+- Keep SDKs under `$GVM_HOME/.cache/src/go<version>`, global tools under `$GVM_HOME/.cache/bin`, module cache under `$GVM_HOME/.cache/pkg`, and manager binaries (`gvm`, `go`, and `gofmt`) under `$GVM_HOME/bin`.
 - SDK installation, release updates, and tool installation must stage work safely and clean up temporary files on failure.
 - Validate SDK versions before constructing paths. Do not turn user-supplied versions into arbitrary filesystem paths.
 - Keep `gvm rm <version>` limited to the requested SDK. Never replace it with a broad recursive deletion or a path-based delete.
@@ -71,20 +72,21 @@ make ci
 
 `make ci` installs `goppy`, runs license setup, linting, tests, and the build pipeline. It may modify generated/license or build outputs; inspect `git status` afterward. The underlying targets are available individually as `make license`, `make lint`, `make tests`, and `make build`.
 
-Build both command binaries locally with:
+Build all manager binaries (`gvm`, `go`, and `gofmt`) locally with:
 
 ```sh
 go build -o bin/gvm ./cmd/gvm
 go build -o bin/go ./cmd/go
+go build -o bin/gofmt ./cmd/gofmt
 ```
 
 The release workflow cross-builds these binaries for Linux, macOS, and Windows on amd64 and arm64. When changing release packaging, keep archive names, `checksums.txt`, executable suffixes, and the matrix in `.github/workflows/release.yml` synchronized with the installers and update client.
 
 ## Installer and release boundaries
 
-- Keep `install.sh` and `install.ps1` thin and repeatable. They create `GVM_HOME` layout, download a published release, install only `gvm` and `go`, and configure user profiles/environment variables idempotently.
+- Keep `install.sh` and `install.ps1` thin and repeatable. They create `GVM_HOME` layout, download a published release, install `gvm`, `go`, and `gofmt`, and configure user profiles/environment variables idempotently.
 - Test installer syntax with `bash -n install.sh`. Do not execute installers against the real home directory during validation; use an isolated home or inspect the script.
-- Changes to GitHub release behavior must preserve SHA-256 verification and atomic replacement of manager binaries without altering installed SDKs.
+- Changes to GitHub release behavior must preserve SHA-256 verification and atomic replacement of manager binaries (`gvm`, `go`, and `gofmt`) without altering installed SDKs.
 - Do not run publication, deployment, profile mutation, or release commands merely as validation. These actions require an explicit request.
 
 ## Handoff checklist

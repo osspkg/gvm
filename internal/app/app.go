@@ -110,8 +110,17 @@ func (a *App) RunGVM(ctx context.Context, args []string) error {
 }
 
 func (a *App) RunGo(ctx context.Context, args []string) error {
+	return a.runSDKTool(ctx, "go", args)
+}
+
+// RunGofmt runs gofmt from the active SDK with the managed environment.
+func (a *App) RunGofmt(ctx context.Context, args []string) error {
+	return a.runSDKTool(ctx, "gofmt", args)
+}
+
+func (a *App) runSDKTool(ctx context.Context, tool string, args []string) error {
 	if environmentValue(a.Environ, env.WrapperActiveKey) == "1" {
-		return a.runActiveGo(ctx, args)
+		return a.runActiveTool(ctx, tool, args)
 	}
 	cfg, err := a.resolveConfig()
 	if err != nil {
@@ -126,23 +135,23 @@ func (a *App) RunGo(ctx context.Context, args []string) error {
 		return err
 	}
 	prepared.Values = env.WithValue(prepared.Values, env.WrapperActiveKey, "1")
-	goBinary, err := sdk.RealGoBinary(sdkRoot)
+	binary, err := sdk.RealToolBinary(sdkRoot, tool)
 	if err != nil {
 		return err
 	}
-	return runner.Run(ctx, goBinary, a.CWD, args, prepared.Values, a.Out, a.Err)
+	return runner.Run(ctx, binary, a.CWD, args, prepared.Values, a.Out, a.Err)
 }
 
-func (a *App) runActiveGo(ctx context.Context, args []string) error {
+func (a *App) runActiveTool(ctx context.Context, tool string, args []string) error {
 	goroot := environmentValue(a.Environ, env.RootKey)
 	if goroot == "" {
 		return errors.New("GVM_WRAPPER_ACTIVE requires GOROOT")
 	}
-	goBinary, err := sdk.RealGoBinaryOnly(goroot)
+	binary, err := sdk.RealToolBinaryOnly(goroot, tool)
 	if err != nil {
-		return fmt.Errorf("resolve active Go wrapper target: %w", err)
+		return fmt.Errorf("resolve active %s wrapper target: %w", tool, err)
 	}
-	return runner.Run(ctx, goBinary, a.CWD, args, a.Environ, a.Out, a.Err)
+	return runner.Run(ctx, binary, a.CWD, args, a.Environ, a.Out, a.Err)
 }
 
 func environmentValue(values []string, key string) string {
@@ -523,9 +532,9 @@ func (a *App) applyStagedUpdate(staging, binDir string) error {
 
 func managerBinaryNames() []string {
 	if runtime.GOOS == "windows" {
-		return []string{"gvm.exe", "go.exe"}
+		return []string{"gvm.exe", "go.exe", "gofmt.exe"}
 	}
-	return []string{"gvm", "go"}
+	return []string{"gvm", "go", "gofmt"}
 }
 
 func replaceManagerBinaries(staging, binDir string) error {

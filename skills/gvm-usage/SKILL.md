@@ -55,6 +55,7 @@ GOPROXY=https://proxy.golang.org
 The former plural key `GVM_TOOLS` is not migrated; rename it manually in existing `.gvmrc` files.
 
 The internal wrapper guard uses `GVM_WRAPPER_ACTIVE=1` to prevent nested wrapper resolution.
+The same guard applies to the `gofmt` wrapper; fresh SDKs contain `gofmt.bin` beside the managed `gofmt` wrapper.
 
 Use:
 
@@ -158,6 +159,7 @@ Use the managed wrapper for Go commands:
 
 `sh
 go version
+gofmt -w path/to/file.go
 go env GOROOT GOPATH GOMODCACHE GOBIN
 `
 
@@ -199,7 +201,7 @@ This ordering ensures project tools win over global tools, SDK commands are avai
 2. Select a project SDK with `gvm local VERSION`, or configure the global default with `gvm default VERSION`.
 3. Put project-specific Go settings and repeated `GVM_TOOL` entries in `.gvmrc`.
 4. Run `gvm venv` when tools must be isolated per project.
-5. Verify `go version` and `go env GOROOT GOPATH GOMODCACHE GOBIN`.
+5. Verify `go version`, format with `gofmt`, and inspect `go env GOROOT GOPATH GOMODCACHE GOBIN`.
 6. Use `go` for Go commands and `gvm run BINARY ...` for managed binaries.
 
 ## Troubleshooting

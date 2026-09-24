@@ -76,10 +76,11 @@ mkdir -p "${bin_dir}" "${cache_dir}/bin" "${cache_dir}/pkg" "${cache_dir}/src"
 tar -xzf "${archive_path}" -C "${temp_dir}"
 install -m 0755 "${temp_dir}/gvm" "${bin_dir}/gvm"
 install -m 0755 "${temp_dir}/go" "${bin_dir}/go"
+install -m 0755 "${temp_dir}/gofmt" "${bin_dir}/gofmt"
 
 append_profile_block "${HOME}/.profile"
 append_profile_block "${HOME}/.bashrc"
 append_profile_block "${HOME}/.zshrc"
 
 echo "gvm ${release_tag} installed in ${home_dir}"
-echo "Open a new shell or source your profile to use gvm and go."
+echo "Open a new shell or source your profile to use gvm, go, and gofmt."

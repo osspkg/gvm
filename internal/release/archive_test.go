@@ -42,9 +42,10 @@ func TestExtractManagerArchiveIgnoresTarTraversalEntry(t *testing.T) {
 	dir := t.TempDir()
 	archivePath := filepath.Join(dir, "release.tar.gz")
 	entries := map[string]string{
-		managerBinaryName("gvm"): "gvm",
-		managerBinaryName("go"):  "go",
-		"../../outside":          "must not escape",
+		managerBinaryName("gvm"):   "gvm",
+		managerBinaryName("go"):    "go",
+		managerBinaryName("gofmt"): "gofmt",
+		"../../outside":            "must not escape",
 	}
 	if err := os.WriteFile(archivePath, managerArchive(t, entries), 0o600); err != nil {
 		t.Fatal(err)
@@ -56,9 +57,10 @@ func TestExtractManagerArchiveIgnoresZipTraversalEntry(t *testing.T) {
 	dir := t.TempDir()
 	archivePath := filepath.Join(dir, "release.zip")
 	entries := map[string]string{
-		managerBinaryName("gvm"): "gvm",
-		managerBinaryName("go"):  "go",
-		"../../outside":          "must not escape",
+		managerBinaryName("gvm"):   "gvm",
+		managerBinaryName("go"):    "go",
+		managerBinaryName("gofmt"): "gofmt",
+		"../../outside":            "must not escape",
 	}
 	if err := os.WriteFile(archivePath, managerZipArchive(t, entries), 0o600); err != nil {
 		t.Fatal(err)
@@ -71,7 +73,7 @@ func assertManagerArchiveSafe(t *testing.T, archivePath, staging string) {
 	if err := ExtractManagerArchive(archivePath, staging); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{managerBinaryName("gvm"), managerBinaryName("go")} {
+	for _, name := range []string{managerBinaryName("gvm"), managerBinaryName("go"), managerBinaryName("gofmt")} {
 		if _, err := os.Stat(filepath.Join(staging, name)); err != nil {
 			t.Fatalf("staged %s: %v", name, err)
 		}
