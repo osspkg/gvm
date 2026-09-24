@@ -18,14 +18,17 @@ func TestBuildOrdersAndDeduplicatesPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	parts := strings.Split(result.PATH, string(os.PathListSeparator))
-	wantFirst := filepath.Join(cwd, ".venv", "bin")
-	if len(parts) < 3 || parts[0] != wantFirst || parts[1] != filepath.Join(home, ".cache", "bin") || parts[2] != filepath.Join(home, "bin") {
+	wantVenv := filepath.Join(cwd, ".venv", "bin")
+	wantCache := filepath.Join(home, ".cache", "bin")
+	wantSDK := filepath.Join(home, ".cache", "src", "go1.22.0", "bin")
+	wantGVM := filepath.Join(home, "bin")
+	if len(parts) < 5 || parts[0] != wantVenv || parts[1] != wantCache || parts[2] != wantSDK || parts[3] != wantGVM {
 		t.Fatalf("PATH = %#v", parts)
 	}
 	if strings.Contains(result.PATH, string(os.PathListSeparator)+string(os.PathListSeparator)) {
 		t.Fatalf("PATH contains empty component: %q", result.PATH)
 	}
-	if result.GOBIN != wantFirst || result.GOPATH != filepath.Join(home, ".cache") {
+	if result.GOBIN != wantVenv || result.GOPATH != filepath.Join(home, ".cache") {
 		t.Fatalf("managed paths = %#v", result)
 	}
 }

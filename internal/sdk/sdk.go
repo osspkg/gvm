@@ -29,6 +29,7 @@ const defaultMetadataURL = "https://go.dev/dl/?mode=json&include=all"
 
 type Release struct {
 	Version string `json:"version"`
+	Stable  bool   `json:"stable"`
 	Files   []File `json:"files"`
 }
 
@@ -119,6 +120,9 @@ func (s *Store) Ensure(ctx context.Context, version string) (string, error) {
 	}
 	if !hasSDK(filepath.Join(tempRoot, "go")) {
 		return "", fmt.Errorf("SDK archive does not contain %s", filepath.Join("go", "bin", sdkBinaryName()))
+	}
+	if err := s.InstallWrapper(filepath.Join(tempRoot, "go")); err != nil {
+		return "", err
 	}
 	if err := os.RemoveAll(finalPath); err != nil {
 		return "", fmt.Errorf("remove incomplete SDK: %w", err)

@@ -70,7 +70,7 @@ func TestDefaultPreservesGlobalEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeExecutable(t, filepath.Join(sdkBin, "go"), "exit 0\n")
-	if err := os.WriteFile(filepath.Join(home, ".gvmrc"), []byte("GVM_GO_VERSION=1.21.0\nGOPROXY=private\nGVM_TOOLS=example.com/tool@latest\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(home, ".gvmrc"), []byte("GVM_GO_VERSION=1.21.0\nGOPROXY=private\nGVM_TOOL=example.com/tool@latest\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	var output bytes.Buffer
@@ -90,7 +90,7 @@ func TestDefaultPreservesGlobalEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
-	for _, expected := range []string{"GVM_GO_VERSION=1.22.0", "GOPROXY=private", "GVM_TOOLS=example.com/tool@latest"} {
+	for _, expected := range []string{"GVM_GO_VERSION=1.22.0", "GOPROXY=private", "GVM_TOOL=example.com/tool@latest"} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("global config %q does not contain %q", text, expected)
 		}

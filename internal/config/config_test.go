@@ -8,7 +8,7 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	values, err := Parse([]byte("# comment\nGVM_GO_VERSION=1.22.0\nGVM_TOOLS='gopls@latest'\nGVM_TOOLS=staticcheck@latest\nGOPROXY=\"https://proxy.golang.org\" # note\n"))
+	values, err := Parse([]byte("# comment\nGVM_GO_VERSION=1.22.0\nGVM_TOOL='gopls@latest'\nGVM_TOOL=staticcheck@latest\nGOPROXY=\"https://proxy.golang.org\" # note\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestResolveUsesNearestLocalAndProcessPrecedence(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(home, ".gvmrc"), []byte("GVM_GO_VERSION=1.21.0\nGOPROXY=global\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(project, ".gvmrc"), []byte("GVM_GO_VERSION=1.22.0\nGOPROXY=local\nGVM_TOOLS=tool@latest\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(project, ".gvmrc"), []byte("GVM_GO_VERSION=1.22.0\nGOPROXY=local\nGVM_TOOL=tool@latest\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	resolved, err := Resolve(home, nested, []string{"GOPROXY=process"})
@@ -62,7 +62,7 @@ func TestResolveUsesNearestLocalAndProcessPrecedence(t *testing.T) {
 
 func TestWritePreservesEnvironment(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".gvmrc")
-	if err := os.WriteFile(path, []byte("GVM_GO_VERSION=1.21.0\nGOPROXY=private\nGVM_TOOLS=tool@latest\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("GVM_GO_VERSION=1.21.0\nGOPROXY=private\nGVM_TOOL=tool@latest\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	venv := true

@@ -18,7 +18,7 @@ const (
 	HomeKey       = "GVM_HOME"
 	GoVersionKey  = "GVM_GO_VERSION"
 	VenvKey       = "GVM_VENV"
-	ToolsKey      = "GVM_TOOLS"
+	ToolKey       = "GVM_TOOL"
 	RootKey       = "GOROOT"
 	PathKey       = "PATH"
 	GOPATHKey     = "GOPATH"
@@ -59,9 +59,9 @@ func Build(cfg config.Config, cwd string, base []string) (Result, error) {
 	values[GoVersionKey] = cfg.GoVersion
 	values[VenvKey] = fmt.Sprintf("%t", cfg.Venv)
 	if len(cfg.Tools) != 0 {
-		values[ToolsKey] = strings.Join(cfg.Tools, "\n")
+		values[ToolKey] = strings.Join(cfg.Tools, "\n")
 	} else {
-		delete(values, ToolsKey)
+		delete(values, ToolKey)
 	}
 	values[RootKey] = root
 	values[GOPATHKey] = gopath
@@ -69,7 +69,7 @@ func Build(cfg config.Config, cwd string, base []string) (Result, error) {
 	values[GOMODCACHEKey] = gomodcache
 
 	basePath := values[PathKey]
-	pathParts := orderedPaths(venvBin, filepath.Join(gopath, "bin"), filepath.Join(cfg.Home, "bin"), basePath)
+	pathParts := orderedPaths(venvBin, filepath.Join(gopath, "bin"), filepath.Join(root, "bin"), filepath.Join(cfg.Home, "bin"), basePath)
 	values[PathKey] = strings.Join(pathParts, string(os.PathListSeparator))
 
 	result := Result{
@@ -97,10 +97,10 @@ func environMap(values []string) map[string]string {
 	return result
 }
 
-func orderedPaths(venvBin, cacheBin, gvmBin, original string) []string {
-	parts := make([]string, 0, 4)
+func orderedPaths(venvBin, cacheBin, sdkBin, gvmBin, original string) []string {
+	parts := make([]string, 0, 5)
 	seen := make(map[string]struct{})
-	for _, group := range []string{venvBin, cacheBin, gvmBin, original} {
+	for _, group := range []string{venvBin, cacheBin, sdkBin, gvmBin, original} {
 		for _, part := range filepath.SplitList(group) {
 			if part == "" {
 				continue

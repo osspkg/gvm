@@ -18,7 +18,7 @@
 ## Configuration and safety contracts
 
 - Parse `.gvmrc` as data. Never add shell sourcing, `eval`, command substitution, or executable configuration behavior.
-- Preserve unrelated environment entries when changing only `GVM_GO_VERSION`, `GVM_VENV`, or `GVM_TOOLS`.
+- Preserve unrelated environment entries when changing only `GVM_GO_VERSION`, `GVM_VENV`, or `GVM_TOOL`.
 - When `gvm local` creates a project-local `.gvmrc` without an explicit version, inspect `go.work` first and `go.mod` second, taking the valid `go` directive as `GVM_GO_VERSION`. If both files exist, `go.work` wins; if neither has a valid directive, return an actionable error instead of selecting the system Go implicitly.
 - Preserve the resolution order: process environment, nearest local `.gvmrc` from the current directory or its parents, global `$GVM_HOME/.gvmrc`, then defaults. Managed `GOROOT`, `GOPATH`, `GOMODCACHE`, `GOBIN`, and `PATH` must not be overridden by project config.
 - Keep SDKs under `$GVM_HOME/.cache/src/go<version>`, global tools under `$GVM_HOME/.cache/bin`, module cache under `$GVM_HOME/.cache/pkg`, and manager binaries under `$GVM_HOME/bin`.

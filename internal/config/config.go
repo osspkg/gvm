@@ -59,7 +59,7 @@ func ParseFile(path string) (Values, error) {
 	return values, nil
 }
 
-// Parse parses one-line KEY=VALUE entries. Repeated GVM_TOOLS keys are kept in order.
+// Parse parses one-line KEY=VALUE entries. Repeated GVM_TOOL keys are kept in order.
 func Parse(data []byte) (Values, error) {
 	values := Values{Fields: make(map[string]string)}
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))
@@ -85,12 +85,12 @@ func Parse(data []byte) (Values, error) {
 		if err != nil {
 			return Values{}, fmt.Errorf("line %d: %w: %w", lineNumber, ErrInvalid, err)
 		}
-		if key == "GVM_TOOLS" {
+		if key == "GVM_TOOL" {
 			if value == "" {
 				continue
 			}
 			if strings.ContainsAny(value, "\r\n") {
-				return Values{}, fmt.Errorf("line %d: %w: GVM_TOOLS cannot contain newlines", lineNumber, ErrInvalid)
+				return Values{}, fmt.Errorf("line %d: %w: GVM_TOOL cannot contain newlines", lineNumber, ErrInvalid)
 			}
 			values.Tools = append(values.Tools, value)
 			continue
@@ -195,7 +195,7 @@ func Resolve(home, cwd string, process []string) (Config, error) {
 			merged[key] = value
 		}
 	}
-	for _, key := range []string{"GVM_GO_VERSION", "GVM_VENV", "GVM_TOOLS"} {
+	for _, key := range []string{"GVM_GO_VERSION", "GVM_VENV", "GVM_TOOL"} {
 		if value, ok := processValues[key]; ok {
 			merged[key] = value
 		}
@@ -214,18 +214,18 @@ func Resolve(home, cwd string, process []string) (Config, error) {
 		return Config{}, err
 	}
 	tools := append([]string(nil), selected.Tools...)
-	if value, ok := processValues["GVM_TOOLS"]; ok {
+	if value, ok := processValues["GVM_TOOL"]; ok {
 		tools = splitTools(value)
 	}
 	for _, tool := range tools {
 		if strings.TrimSpace(tool) == "" || strings.ContainsAny(tool, "\r\n") {
-			return Config{}, fmt.Errorf("%w: invalid GVM_TOOLS entry", ErrInvalid)
+			return Config{}, fmt.Errorf("%w: invalid GVM_TOOL entry", ErrInvalid)
 		}
 	}
 
 	envValues := make(map[string]string, len(merged))
 	for key, value := range merged {
-		if key == "GVM_GO_VERSION" || key == "GVM_VENV" || key == "GVM_TOOLS" || key == "GVM_HOME" {
+		if key == "GVM_GO_VERSION" || key == "GVM_VENV" || key == "GVM_TOOL" || key == "GVM_HOME" {
 			continue
 		}
 		envValues[key] = value
@@ -336,7 +336,7 @@ func writeValues(path string, values Values) error {
 		fmt.Fprintf(&builder, "GVM_VENV=%s\n", value)
 	}
 	for _, tool := range values.Tools {
-		fmt.Fprintf(&builder, "GVM_TOOLS=%s\n", tool)
+		fmt.Fprintf(&builder, "GVM_TOOL=%s\n", tool)
 	}
 	for _, key := range keys {
 		fmt.Fprintf(&builder, "%s=%s\n", key, quoteValue(values.Fields[key]))

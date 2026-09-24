@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/osspkg/gvm/internal/runner"
+	"github.com/osspkg/gvm/internal/sdk"
 )
 
 func BinDir(cwd string) string {
@@ -57,7 +58,7 @@ func EnsureTools(ctx context.Context, cwd, sdkRoot string, tools []string, envir
 	if !needsInstall {
 		return nil
 	}
-	goBinary, err := runner.Executable(filepath.Join(sdkRoot, "bin"), "go")
+	goBinary, err := sdk.RealGoBinary(sdkRoot)
 	if err != nil {
 		return fmt.Errorf("find SDK go for tools: %w", err)
 	}

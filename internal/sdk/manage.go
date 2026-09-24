@@ -79,3 +79,52 @@ func (s *Store) Remove(version string) error {
 	}
 	return nil
 }
+
+// RemoveAll deletes every installed SDK while preserving the rest of GVM_HOME.
+func (s *Store) RemoveAll() (int, error) {
+	if s.Home == "" {
+		return 0, errors.New("sdk: GVM_HOME is empty")
+	}
+	root := filepath.Join(s.CacheRoot(), "src")
+	rootInfo, err := os.Lstat(root)
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("inspect SDK cache: %w", err)
+	}
+	if rootInfo.Mode()&os.ModeSymlink != 0 || !rootInfo.IsDir() {
+		return 0, fmt.Errorf("sdk: refusing to remove SDKs from non-directory cache %q", root)
+	}
+	entries, err := os.ReadDir(root)
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read SDK cache: %w", err)
+	}
+
+	removed := 0
+	for _, entry := range entries {
+		if !entry.IsDir() || !strings.HasPrefix(entry.Name(), "go") {
+			continue
+		}
+		version := strings.TrimPrefix(entry.Name(), "go")
+		if !installedVersionPattern.MatchString(version) {
+			continue
+		}
+		target := filepath.Join(root, entry.Name())
+		info, err := os.Lstat(target)
+		if err != nil {
+			return removed, fmt.Errorf("inspect SDK %s: %w", version, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			continue
+		}
+		if err := os.RemoveAll(target); err != nil {
+			return removed, fmt.Errorf("remove SDK %s: %w", version, err)
+		}
+		removed++
+	}
+	return removed, nil
+}

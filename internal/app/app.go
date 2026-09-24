@@ -88,6 +88,8 @@ func (a *App) RunGVM(ctx context.Context, args []string) error {
 		return a.listSDKs(args[1:])
 	case "rm":
 		return a.removeSDK(args[1:])
+	case "remove-all":
+		return a.removeAllSDKs(args[1:])
 	case "default":
 		home, err := a.home()
 		if err != nil {
@@ -120,7 +122,7 @@ func (a *App) RunGo(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	goBinary, err := runner.Executable(filepath.Join(sdkRoot, "bin"), "go")
+	goBinary, err := sdk.RealGoBinary(sdkRoot)
 	if err != nil {
 		return err
 	}
@@ -129,7 +131,7 @@ func (a *App) RunGo(ctx context.Context, args []string) error {
 
 func (a *App) install(ctx context.Context, args []string) error {
 	if len(args) > 1 {
-		return errors.New("usage: gvm install [version]")
+		return errors.New("usage: gvm install [version|latest]")
 	}
 	versionName := ""
 	if len(args) == 1 {
@@ -140,6 +142,16 @@ func (a *App) install(ctx context.Context, args []string) error {
 			return err
 		}
 		versionName = cfg.GoVersion
+	}
+	if versionName == "latest" {
+		home, err := a.home()
+		if err != nil {
+			return err
+		}
+		versionName, err = sdk.NewStore(home, a.HTTP, a.Progress).LatestStableVersion(ctx)
+		if err != nil {
+			return err
+		}
 	}
 	path, err := a.ensureSDK(ctx, versionName)
 	if err != nil {
@@ -191,6 +203,22 @@ func (a *App) removeSDK(args []string) error {
 	return err
 }
 
+func (a *App) removeAllSDKs(args []string) error {
+	if len(args) != 0 {
+		return errors.New("usage: gvm remove-all")
+	}
+	home, err := a.home()
+	if err != nil {
+		return err
+	}
+	removed, err := sdk.NewStore(home, a.HTTP, a.Progress).RemoveAll()
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(a.Out, "removed %d Go SDK(s)\n", removed)
+	return err
+}
+
 func (a *App) setVersion(ctx context.Context, args []string, path string) error {
 	if len(args) != 1 {
 		return errors.New("usage: gvm default <version>")
@@ -222,7 +250,7 @@ func (a *App) configureVersion(ctx context.Context, versionName, path string) er
 	if err := config.Write(path, versionName, nil, nil); err != nil {
 		return err
 	}
-	_, err := fmt.Fprintf(a.Out, "configured Go %s in %s\n", versionName, path)
+	_, err := fmt.Fprintf(a.Out, "\nconfigured Go %s in %s\n", versionName, path)
 	return err
 }
 
@@ -570,9 +598,10 @@ func (a *App) printHelp() {
 	_, _ = fmt.Fprintln(a.Out, `gvm - Go version manager
 
 Usage:
-  gvm install [version]
+  gvm install [version|latest]
   gvm list
   gvm rm <version>
+  gvm remove-all
   gvm default <version>
   gvm local [version]
   gvm venv
