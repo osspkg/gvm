@@ -1,0 +1,82 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+      - name: Build release archive
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${VERSION#v}"
+          stage="$(mktemp -d)"
+          trap 'rm -rf "${stage}"' EXIT
+          suffix=""
+          extension="tar.gz"
+          if [ "${GOOS}" = "windows" ]; then
+            suffix=".exe"
+            extension="zip"
+          fi
+          go build -trimpath -ldflags "-s -w -X github.com/osspkg/gvm/internal/version.Value=${VERSION}" -o "${stage}/gvm${suffix}" ./cmd/gvm
+          go build -trimpath -ldflags "-s -w -X github.com/osspkg/gvm/internal/version.Value=${VERSION}" -o "${stage}/go${suffix}" ./cmd/go
+          archive="gvm_${version}_${GOOS}_${GOARCH}.${extension}"
+          if [ "${GOOS}" = "windows" ]; then
+            (cd "${stage}" && zip -q "${GITHUB_WORKSPACE}/${archive}" "gvm.exe" "go.exe")
+          else
+            tar -czf "${archive}" -C "${stage}" gvm go
+          fi
+          sha256sum "${archive}" > "${archive}.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            gvm_*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: release-*
+          merge-multiple: true
+      - name: Create checksums
+        working-directory: dist
+        run: cat *.sha256 | sort -k2 > checksums.txt
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes --verify-tag
